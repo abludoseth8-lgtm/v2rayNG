@@ -79,7 +79,6 @@ android {
         }
     }
 
-    // THIS IS THE FIXED PART
     androidComponents {
         onVariants(selector().all()) { variant ->
             variant.outputs.forEach { output ->
@@ -92,12 +91,12 @@ android {
                 }
 
                 if (versionCodes.containsKey(abi)) {
-                    val baseVersionCode = variant.versionCode
+                    val baseVersionCode = output.versionCode.get()
                     val multiplier = if (isFdroid) 100 else 1000000
                     output.versionCode.set(baseVersionCode * multiplier + versionCodes[abi]!! + (if (isFdroid) 5000000 else 0))
                 }
 
-                val versionName = variant.versionName ?: "2.3.15"
+                val versionName = output.versionName.get() ?: "2.3.15"
                 output.outputFileName.set(
                     if (isFdroid) "v2rayNG_${versionName}-fdroid_${abi}.apk"
                     else "v2rayNG_${versionName}_${abi}.apk"
