@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.seth.vpnapp"
+    namespace = "com.v2ray.ang"
     compileSdk = 37
 
     defaultConfig {
@@ -79,47 +79,30 @@ android {
         }
     }
 
-    applicationVariants.all {
-        val variant = this
-        val isFdroid = variant.productFlavors.any { it.name == "fdroid" }
-        if (isFdroid) {
-            val versionCodes =
-                mapOf(
-                    "armeabi-v7a" to 2, "arm64-v8a" to 1, "x86" to 4, "x86_64" to 3, "universal" to 0
+    // THIS IS THE FIXED PART
+    androidComponents {
+        onVariants(selector().all()) { variant ->
+            variant.outputs.forEach { output ->
+                val abi = output.filters.find { it.filterType == com.android.build.api.variant.FilterConfiguration.FilterType.ABI }?.identifier ?: "universal"
+                val isFdroid = variant.flavorName == "fdroid"
+                val versionCodes = if (isFdroid) {
+                    mapOf("armeabi-v7a" to 2, "arm64-v8a" to 1, "x86" to 4, "x86_64" to 3, "universal" to 0)
+                } else {
+                    mapOf("armeabi-v7a" to 4, "arm64-v8a" to 4, "x86" to 4, "x86_64" to 4, "universal" to 4)
+                }
+
+                if (versionCodes.containsKey(abi)) {
+                    val baseVersionCode = variant.versionCode
+                    val multiplier = if (isFdroid) 100 else 1000000
+                    output.versionCode.set(baseVersionCode * multiplier + versionCodes[abi]!! + (if (isFdroid) 5000000 else 0))
+                }
+
+                val versionName = variant.versionName ?: "2.3.15"
+                output.outputFileName.set(
+                    if (isFdroid) "v2rayNG_${versionName}-fdroid_${abi}.apk"
+                    else "v2rayNG_${versionName}_${abi}.apk"
                 )
-
-            variant.outputs
-                .map { it as com.android.build.gradle.internal.api.ApkVariantOutputImpl }
-                .forEach { output ->
-                    val abi = output.getFilter("ABI") ?: "universal"
-                    output.outputFileName = "v2rayNG_${variant.versionName}-fdroid_${abi}.apk"
-                    if (versionCodes.containsKey(abi)) {
-                        output.versionCodeOverride =
-                            (100 * variant.versionCode + versionCodes[abi]!!).plus(5000000)
-                    } else {
-                        return@forEach
-                    }
-                }
-        } else {
-            val versionCodes =
-                mapOf("armeabi-v7a" to 4, "arm64-v8a" to 4, "x86" to 4, "x86_64" to 4, "universal" to 4)
-
-            variant.outputs
-                .map { it as com.android.build.gradle.internal.api.ApkVariantOutputImpl }
-                .forEach { output ->
-                    val abi = if (output.getFilter("ABI") != null)
-                        output.getFilter("ABI")
-                    else
-                        "universal"
-
-                    output.outputFileName = "v2rayNG_${variant.versionName}_${abi}.apk"
-                    if (versionCodes.containsKey(abi)) {
-                        output.versionCodeOverride =
-                            (1000000 * versionCodes[abi]!!).plus(variant.versionCode)
-                    } else {
-                        return@forEach
-                    }
-                }
+            }
         }
     }
 
@@ -153,10 +136,6 @@ android {
     testOptions {
         unitTests.all {
             it.useJUnitPlatform()
-            // Treat Jupiter discovery warnings as failures: JUnit 4 failed on an invalid @Test
-            // method, such as one that returns a value, while Jupiter only warns and skips it.
-            // The key is @API(status = EXPERIMENTAL) in JUnit 6; after a JUnit upgrade, check
-            // that a temporary `@Test fun probe() = 1` still fails the unit test task.
             it.systemProperty("junit.platform.discovery.issue.severity.critical", "WARNING")
         }
     }
@@ -164,17 +143,11 @@ android {
 }
 
 dependencies {
-    // Core Libraries
     implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar", "*.jar"))))
-
-    // AndroidX Core Libraries
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
-
-    // Compose Libraries
     implementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(platform(libs.androidx.compose.bom))
-
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.foundation)
@@ -182,37 +155,22 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.coil.compose)
-
     debugImplementation(libs.androidx.compose.ui.tooling)
-
-    // Data and Storage Libraries
     implementation(libs.mmkv.static)
     implementation(libs.gson)
     implementation(libs.okhttp)
-
-    // Reactive and Utility Libraries
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.core)
-
-    // QR Code: CameraX + ZXing
     implementation(libs.camerax.core)
     implementation(libs.camerax.camera2)
     implementation(libs.camerax.lifecycle)
     implementation(libs.camerax.compose)
-    implementation(libs.core) // zxing core
-
-    // AndroidX Lifecycle and Architecture Components
+    implementation(libs.core)
     implementation(libs.lifecycle.viewmodel.ktx)
     implementation(libs.lifecycle.runtime.ktx)
-
-    // Background Task Libraries
     implementation(libs.work.runtime.ktx)
     implementation(libs.work.multiprocess)
-
-    // Reorderable list
     implementation(libs.reorderable)
-
-    // Testing Libraries
     testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)
